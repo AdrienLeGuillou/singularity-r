@@ -1,0 +1,48 @@
+Bootstrap: shub
+From: shub://AdrienLeGuillou/singularity-r:latest
+
+%setup
+  mkdir -p /r_project
+
+%files
+   sup_config.sh /sup_config.sh
+   init_renv.R /r_project/init_renv.R
+   renv.lock /r_project/renv.lock
+
+%post
+  # Do not use the host user libraries
+  echo "R_LIBS_USER=\"\"" >> /usr/lib/R/etc/Renviron.site
+
+  # Define the renv root folder
+  export RENV_PATHS_ROOT="/renv_cache"
+  mkdir -p /renv_cache
+
+  # supplemental config (for example github_pat)
+  . /sup_config.sh
+
+  # Restoring renv
+  cd /r_project
+  Rscript init_renv.R
+  R -e "renv::restore(confirm = FALSE)"
+  cd /
+
+  # When R starts: go to /r_project, activate renv, go back to $PWD
+  echo "work_dir <- setwd('/r_project')" >> /usr/lib/R/etc/Rprofile.site
+  echo "source('.Rprofile')" >> /usr/lib/R/etc/Rprofile.site
+  echo "setwd(work_dir)" >> /usr/lib/R/etc/Rprofile.site
+
+%environment
+  # ignore user config files for R
+  export R_PROFILE_USER=""
+  export R_ENVIRON_USER=""
+  # Define the renv root folder
+  export RENV_PATHS_ROOT="/renv_cache"
+
+%apprun R
+  exec R "${@}"
+
+%apprun Rscript
+  exec Rscript "${@}"
+
+%runscript
+  exec R "${@}"
